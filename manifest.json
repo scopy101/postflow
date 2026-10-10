@@ -1,0 +1,16 @@
+{
+  "name": "PostFlow",
+  "short_name": "PostFlow",
+  "description": "جدولة ونشر المنشورات على صفحات فيسبوك",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "ar",
+  "dir": "rtl",
+  "background_color": "#f6f7fc",
+  "theme_color": "#1877f2",
+  "icons": [
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

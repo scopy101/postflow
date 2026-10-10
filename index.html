@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1877f2">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.png">
+<title>PostFlow</title>
+<style>
+:root{--a:#1877f2;--b:#6b3fd4;--ink:#1b1f3b;--mut:#5b6182;--line:#e3e6f2;--bg:#f6f7fc}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Segoe UI",Roboto,Tahoma,Arial,sans-serif}
+header{background:linear-gradient(135deg,var(--a),var(--b));color:#fff;padding:18px 16px;display:flex;align-items:center;gap:10px}
+header img{width:38px;height:38px;border-radius:10px}
+header b{font-size:20px}
+main{max-width:640px;margin:0 auto;padding:14px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+h2{margin:0 0 10px;font-size:18px}
+label{display:block;font-size:14px;color:var(--mut);margin:10px 0 4px}
+input,select,textarea{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fff;color:var(--ink)}
+textarea{min-height:120px;resize:vertical}
+button{border:0;border-radius:10px;padding:11px 16px;font:inherit;font-weight:600;color:#fff;background:var(--a);cursor:pointer}
+button.sec{background:#eef1ff;color:var(--b)}
+button.ok{background:#1e9e5a}
+button.no{background:#d33a4a}
+button:disabled{opacity:.5}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.tabs{display:flex;gap:8px;margin-bottom:14px}
+.tabs button{flex:1;background:#fff;color:var(--mut);border:1px solid var(--line)}
+.tabs button.on{background:var(--a);color:#fff;border-color:var(--a)}
+.hide{display:none!important}
+.g{border-inline-start:4px solid var(--b);padding:10px 12px;margin-top:10px;background:var(--bg);border-radius:8px}
+.g small{color:var(--mut);display:block;direction:ltr;text-align:right;overflow:hidden;text-overflow:ellipsis}
+.g.done{opacity:.55;border-color:#1e9e5a}
+#toast{position:fixed;bottom:18px;inset-inline:16px;background:var(--ink);color:#fff;padding:12px 14px;border-radius:10px;display:none;z-index:9}
+</style>
+</head>
+<body>
+<header><img src="icon.png" alt=""><b>PostFlow</b></header>
+<main>
+
+<section id="login" class="card">
+  <h2>أهلاً بيك</h2>
+  <p style="color:var(--mut);margin-top:0">سجّل دخول بفيسبوك عشان تدير وتنشر على صفحاتك.</p>
+  <button onclick="login()">تسجيل الدخول بفيسبوك</button>
+</section>
+
+<section id="app" class="hide">
+  <div class="tabs">
+    <button id="t1" class="on" onclick="tab(1)">النشر على الصفحة</button>
+    <button id="t2" onclick="tab(2)">تذكير الجروبات</button>
+  </div>
+
+  <div id="p1">
+    <div class="card">
+      <label>الصفحة</label>
+      <select id="pageSel"></select>
+      <label>نص المنشور</label>
+      <textarea id="msg" placeholder="اكتب منشورك هنا"></textarea>
+      <label>رابط (اختياري)</label>
+      <input id="link" type="url" dir="ltr" placeholder="https://">
+      <label>موعد النشر (سيبه فاضي للنشر الآن)</label>
+      <input id="when" type="datetime-local">
+      <div class="row"><button id="pubBtn" onclick="publish()">نشر / جدولة</button></div>
+      <p style="font-size:13px;color:var(--mut);margin-bottom:0">الجدولة لازم تكون بين 10 دقايق و30 يوم من دلوقتي. فيسبوك هو اللي بينشر في الميعاد.</p>
+    </div>
+    <div class="row"><button class="sec" onclick="logout()">تسجيل الخروج</button></div>
+  </div>
+
+  <div id="p2" class="hide">
+    <div class="card">
+      <h2>نص المنشور للجروبات</h2>
+      <textarea id="gtext" placeholder="انسخ المنشور هنا. غيّر الصياغة قليلاً من جروب لآخر."></textarea>
+      <h2 style="margin-top:16px">إضافة جروب</h2>
+      <label>اسم الجروب</label><input id="gname">
+      <label>رابط الجروب</label><input id="gurl" type="url" dir="ltr" placeholder="https://facebook.com/groups/...">
+      <div class="row"><button onclick="addG()">إضافة</button></div>
+    </div>
+    <div class="card">
+      <h2>الجدولة</h2>
+      <label>عدد الجروبات في كل ساعة</label>
+      <input id="per" type="number" min="1" value="4">
+      <div class="row"><button onclick="plan()">ابدأ الجدولة والتذكير</button></div>
+      <p style="font-size:13px;color:var(--mut)">التذكير بيشتغل والتطبيق مفتوح. إنت اللي بتنشر بإيدك في كل جروب.</p>
+      <div id="glist"></div>
+    </div>
+  </div>
+</section>
+</main>
+<div id="toast"></div>
+
+<script>
+var $=function(s){return document.querySelector(s)};
+var pages=[],timers=[];
+var G=JSON.parse(localStorage.getItem('pf_g')||'[]');
+function save(){localStorage.setItem('pf_g',JSON.stringify(G))}
+function toast(t){var e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(function(){e.style.display='none'},4500)}
+function tab(n){$('#p1').classList.toggle('hide',n!=1);$('#p2').classList.toggle('hide',n!=2);$('#t1').classList.toggle('on',n==1);$('#t2').classList.toggle('on',n==2)}
+
+window.fbAsyncInit=function(){
+  FB.init({appId:'1088767100542793',cookie:true,xfbml:false,version:'v26.0'});
+  FB.getLoginStatus(function(r){if(r.status==='connected')load()});
+};
+(function(){var s=document.createElement('script');s.src='https://connect.facebook.net/ar_AR/sdk.js';s.async=true;document.body.appendChild(s)})();
+setTimeout(function(){if(typeof FB==='undefined')toast('تعذّر تحميل فيسبوك. عطّل حماية المتصفح (Shields) للموقع وجرّب تاني.')},6000);
+
+function login(){
+  if(typeof FB==='undefined'){toast('فيسبوك لسه بيتحمّل. جرّب بعد ثواني.');return}
+  FB.login(function(r){if(r.authResponse)load();else toast('تم إلغاء تسجيل الدخول')},
+    {scope:'pages_show_list,pages_manage_posts,pages_read_engagement'});
+}
+function logout(){FB.logout(function(){$('#app').classList.add('hide');$('#login').classList.remove('hide')})}
+function load(){
+  FB.api('/me/accounts',{fields:'id,name,access_token',limit:100},function(r){
+    if(r.error){toast(r.error.message);return}
+    pages=r.data||[];
+    var s=$('#pageSel');s.innerHTML='';
+    pages.forEach(function(p,i){var o=document.createElement('option');o.value=i;o.textContent=p.name;s.appendChild(o)});
+    if(!pages.length){toast('مفيش صفحات متاحة. سجّل دخول تاني واختار صفحة.')}
+    $('#login').classList.add('hide');$('#app').classList.remove('hide');
+    renderG();
+  });
+}
+function publish(){
+  var p=pages[$('#pageSel').value],m=$('#msg').value.trim(),l=$('#link').value.trim(),w=$('#when').value;
+  if(!p||(!m&&!l)){toast('اكتب نص المنشور أو رابط');return}
+  var d={message:m,access_token:p.access_token};
+  if(l)d.link=l;
+  if(w){
+    var ts=Math.floor(new Date(w).getTime()/1000),now=Math.floor(Date.now()/1000);
+    if(ts-now<600||ts-now>30*86400){toast('الموعد لازم يكون بين 10 دقايق و30 يوم من دلوقتي');return}
+    d.published=false;d.scheduled_publish_time=ts;
+  }
+  var b=$('#pubBtn');b.disabled=true;
+  FB.api('/'+p.id+'/feed','post',d,function(r){
+    b.disabled=false;
+    if(r.error){toast('خطأ: '+r.error.message);return}
+    toast(w?'تمت الجدولة بنجاح':'تم النشر بنجاح');
+    $('#msg').value='';$('#link').value='';$('#when').value='';
+  });
+}
+
+function addG(){
+  var n=$('#gname').value.trim(),u=$('#gurl').value.trim();
+  if(!u){toast('اكتب رابط الجروب');return}
+  G.push({n:n||u,u:u,s:'pending',at:0});save();
+  $('#gname').value='';$('#gurl').value='';renderG();
+}
+function plan(){
+  var per=Math.max(1,parseInt($('#per').value)||4),i=0,now=Date.now();
+  G.forEach(function(g){if(g.s==='pending'){g.at=now+Math.floor(i/per)*3600000;i++}});
+  save();renderG();arm();
+  if('Notification' in window&&Notification.permission==='default')Notification.requestPermission();
+  toast('تم ترتيب '+i+' جروب');
+}
+function setS(i,s){G[i].s=s;save();renderG()}
+function openG(i){
+  var t=$('#gtext').value;
+  if(navigator.clipboard&&t)navigator.clipboard.writeText(t).then(function(){toast('تم نسخ المنشور')});
+  window.open(G[i].u,'_blank');
+}
+function renderG(){
+  var box=$('#glist');box.innerHTML='';
+  G.forEach(function(g,i){
+    if(g.s==='rejected')return;
+    var d=document.createElement('div');d.className='g'+(g.s==='done'?' done':'');
+    var t=document.createElement('b');t.textContent=g.n;d.appendChild(t);
+    var s=document.createElement('small');s.textContent=g.u;d.appendChild(s);
+    if(g.at){var w=document.createElement('div');w.style.fontSize='13px';w.textContent='الموعد: '+new Date(g.at).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})+(g.s==='done'?' (تم)':'');d.appendChild(w)}
+    if(g.s==='pending'){
+      var r=document.createElement('div');r.className='row';
+      [['افتح وانسخ','',function(){openG(i)}],['تم','ok',function(){setS(i,'done')}],['اترفض','no',function(){setS(i,'rejected')}]].forEach(function(x){
+        var b=document.createElement('button');b.textContent=x[0];if(x[1])b.className=x[1];b.onclick=x[2];r.appendChild(b)});
+      d.appendChild(r);
+    }
+    box.appendChild(d);
+  });
+  var rej=G.filter(function(g){return g.s==='rejected'}).length;
+  if(rej){var p=document.createElement('p');p.style.cssText='font-size:13px;color:#5b6182';p.textContent='جروبات مخفية (اترفضت): '+rej;box.appendChild(p)}
+}
+function notify(g){
+  var msg='حان وقت النشر في: '+g.n;toast(msg);
+  if('Notification' in window&&Notification.permission==='granted'){
+    if(navigator.serviceWorker)navigator.serviceWorker.ready.then(function(r){r.showNotification('PostFlow',{body:msg,icon:'icon.png'})});
+    else new Notification('PostFlow',{body:msg});
+  }
+}
+function arm(){
+  timers.forEach(clearTimeout);timers=[];
+  G.forEach(function(g){
+    if(g.s==='pending'&&g.at){var d=g.at-Date.now();if(d<0)d=0;if(d<86400000)timers.push(setTimeout(function(){notify(g)},d))}
+  });
+}
+arm();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
